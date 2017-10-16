@@ -21,6 +21,11 @@ TOOLS=$ROOT/toolchain/gcc-linaro-aarch/gcc-linaro/bin/arm-linux-gnueabihf-
 BUILD=$ROOT/output
 CORES=$((`cat /proc/cpuinfo | grep processor | wc -l` - 1))
 
+# bug fix for only one cpu system！ 2017.10.16 by andrew
+if [ ${CORES} -eq 0 ]; then
+        CORES=1
+fi
+
 # Perpar souce code
 if [ ! -d $UBOOT ]; then
 	whiptail --title "OrangePi Build System" \
