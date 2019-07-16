@@ -20,7 +20,14 @@ BUILD="$ROOT/external"
 OUTPUT="$ROOT/output"
 IMAGE="$OUTPUT/${PLATFORM}.img"
 ROOTFS="$OUTPUT/rootfs"
-disk_size="1200"
+
+# Partition Setup
+boot0_position=8      # KiB
+uboot_position=16400  # KiB
+part_position=20480   # KiB
+boot_size=50          # MiB
+# disk_size="1200"
+disk_size=$[(`du -s $ROOTFS | awk 'END {print $1}'`+part_position)/1024+300+boot_size]
 
 if [ -z "$disk_size" ]; then
 	disk_size=100 #MiB
@@ -35,12 +42,6 @@ echo "Creating image $IMAGE of size $disk_size MiB ..."
 
 boot0="$ROOT/output/boot0.bin"
 uboot="$ROOT/output/uboot.bin"
-
-# Partition Setup
-boot0_position=8      # KiB
-uboot_position=16400  # KiB
-part_position=20480   # KiB
-boot_size=50          # MiB
 
 set -x
 
