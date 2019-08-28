@@ -234,11 +234,6 @@ SelectSources()
 	fi
 }
 	SelectDistro
-	if [ ! -f $ROOT/output/uboot.bin -o ! -f $ROOT/output/boot0.bin ]; then
-	    cd $SCRIPTS
-		./uboot_compile.sh
-		cd -
-	fi
 
 	if [ ! -f $ROOT/output/uImage ]; then
 		export BUILD_KERNEL=1
@@ -246,6 +241,7 @@ SelectSources()
 		./kernel_compile.sh
 		cd -
 	fi
+
 	if [ ! -d $ROOT/output/lib ]; then
 		if [ -f $ROOT/output/lib ]; then
 			rm $ROOT/output/lib
@@ -254,6 +250,12 @@ SelectSources()
 		export BUILD_MODULE=1
 		cd $SCRIPTS
 		./kernel_compile.sh
+		cd -
+	fi
+
+	if [ ! -f $ROOT/output/uboot.bin -o ! -f $ROOT/output/boot0.bin ]; then
+		cd $SCRIPTS
+		./uboot_compile.sh
 		cd -
 	fi
 
@@ -267,7 +269,7 @@ SelectSources()
 			OP_ROOTFS=1
 		fi
 		if [ $OP_ROOTFS = "0" ]; then
-			sudo cp -rf $ROOT/output/${DISTRO}_rootfs $ROOT/output/tmp
+			sudo cp -rfa $ROOT/output/${DISTRO}_rootfs $ROOT/output/tmp
 			if [ -d $ROOT/output/rootfs ]; then
 				sudo rm -rf $ROOT/output/rootfs
 			fi
@@ -288,7 +290,7 @@ SelectSources()
 		sudo ./03_rootfs_build.sh $DISTRO
 	fi
 	if [ $TMP = "0" ]; then 
-		sudo ./build_image.sh $PLATFORM
+		sudo ./build_image.sh ${PLATFORM}_${DISTRO}
 		whiptail --title "OrangePi Build System" --msgbox "Succeed to build Image" \
 				10 40 0	--ok-button Continue
 	fi

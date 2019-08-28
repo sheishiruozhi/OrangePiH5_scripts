@@ -62,7 +62,7 @@ cp -rfa $OUTPUT/uImage $OUTPUT/orangepi
 cp -rfa $OUTPUT/OrangePiH5.dtb $OUTPUT/orangepi/OrangePiH5.dtb
 
 # Add boot support if there
-if [ -e "$OUTPUT/orangepi/uImage" -a -e "$OUTPUT/orangepi/OrangePiH5orangepi.dtb" ]; then
+if [ -e "$OUTPUT/orangepi/uImage" -a -e "$OUTPUT/orangepi/OrangePiH5.dtb" ]; then
 	mcopy -sm -i ${IMAGE}1 ${OUTPUT}/orangepi ::
 	mcopy -m -i ${IMAGE}1 ${OUTPUT}/initrd.img :: || true
 	mcopy -m -i ${IMAGE}1 ${OUTPUT}/uEnv.txt :: || true
@@ -72,7 +72,7 @@ rm -f ${IMAGE}1
 
 # Create additional ext4 file system for rootfs
 dd if=/dev/zero bs=1M count=$((disk_size-boot_size-part_position/1024)) of=${IMAGE}2
-mkfs.ext4 -F -b 4096 -E stride=2,stripe-width=1024 -L rootfs ${IMAGE}2
+mkfs.ext4 -O ^metadata_csum -F -b 4096 -E stride=2,stripe-width=1024 -L rootfs ${IMAGE}2
 
 if [ ! -d /media/tmp ]; then
 	mkdir -p /media/tmp

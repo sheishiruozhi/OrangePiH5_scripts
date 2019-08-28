@@ -93,10 +93,10 @@ if [ $BUILD_KERNEL = "1" ]; then
 	# dtc -I dtb -O dts -o target_file.dts source_file.dtb
 	########
 	# Update DTB with uboot
-	echo -e "\e[1;31m Cover sys_config.fex to DTS \e[0m"
-	cd $ROOT/scripts/pack/
-	./pack
-	cd -
+	# echo -e "\e[1;31m Cover sys_config.fex to DTS \e[0m"
+	# cd $ROOT/scripts/pack/
+	# ./pack
+	# cd -
 
 	# Perpare uImage
 	mkimage -A arm -n "OrangePiH5" -O linux -T kernel -C none -a 0x40080000 -e 0x40080000 \
@@ -118,10 +118,3 @@ fi
 clear
 whiptail --title "OrangePi Build System" --msgbox \
 	"Build Kernel OK. The path of output file: ${BUILD}" 10 80 0
-
-
-
-
-
-
-
