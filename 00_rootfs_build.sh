@@ -10,9 +10,15 @@ if [ -z $ROOT ]; then
 fi
 
 if [ -z $1 ]; then
-	DISTRO="jessie"
+	DISTRO="stretch"
 else
 	DISTRO=$1
+fi
+
+if [ -z $2 ]; then
+        SOURCES="CDN"
+else
+        SOURCES=$2
 fi
 
 BUILD="$ROOT/external"
@@ -66,19 +72,72 @@ cleanup() {
 trap cleanup EXIT
 
 ROOTFS=""
-UNTAR="bsdtar -xpf"
+UNTAR="tar -xpf"
 METHOD="download"
 
 case $DISTRO in
 	arch)
-		ROOTFS="http://archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz"
+		case $SOURCES in
+			"CDN"|"OFCL")
+				ROOTFS="http://archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz"
+				;;
+			"CN")
+				ROOTFS="http://mirrors.163.com/archlinuxarm/os/ArchLinuxARM-aarch64-latest.tar.gz"
+				;;
+			*)
+				ROOTFS="http://archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz"
+				;;
+		esac
 		;;
 	xenial)
-		ROOTFS="http://cdimage.ubuntu.com/ubuntu-base/xenial/daily/current/xenial-base-arm64.tar.gz"
+		case $SOURCES in
+		        "CDN"|"OFCL")
+		       	        SOURCES="http://ports.ubuntu.com"
+				ROOTFS="http://cdimage.ubuntu.com/ubuntu-base/releases/${DISTRO}/release/ubuntu-base-16.04-core-arm64.tar.gz"
+		                ;;
+	        	"CN")
+		                SOURCES="http://mirrors.aliyun.com/ubuntu-ports"
+				ROOTFS="https://mirrors.tuna.tsinghua.edu.cn/ubuntu-cdimage/ubuntu-base/releases/${DISTRO}/release/ubuntu-base-16.04-core-arm64.tar.gz"
+	        	        ;;
+			*)
+				SOURCES="http://ports.ubuntu.com"
+				ROOTFS="http://cdimage.ubuntu.com/ubuntu-base/releases/${DISTRO}/release/ubuntu-base-16.04-core-arm64.tar.gz"
+				;;
+		esac
 		;;
-	sid|jessie)
+	bionic)
+                case $SOURCES in
+                        "CDN"|"OFCL")
+                                SOURCES="http://ports.ubuntu.com"
+				ROOTFS="http://cdimage.ubuntu.com/ubuntu-base/releases/${DISTRO}/release/ubuntu-base-18.04-base-arm64.tar.gz"
+                                ;;
+                        "CN")
+                                SOURCES="http://mirrors.aliyun.com/ubuntu-ports"
+				ROOTFS="https://mirrors.tuna.tsinghua.edu.cn/ubuntu-cdimage/ubuntu-base/releases/${DISTRO}/release/ubuntu-base-18.04-base-arm64.tar.gz"
+                                ;;
+                        *)
+                                SOURCES="http://ports.ubuntu.com"
+				ROOTFS="http://cdimage.ubuntu.com/ubuntu-base/releases/${DISTRO}/release/ubuntu-base-18.04-base-arm64.tar.gz"
+                                ;;
+                esac
+                ;;
+	sid|stretch|stable)
 		ROOTFS="${DISTRO}-base-arm64.tar.gz"
 		METHOD="debootstrap"
+		case $SOURCES in
+                        "CDN")
+                                SOURCES="http://httpredir.debian.org/debian"
+                                ;;
+                        "OFCL")
+                                SOURCES="http://ftp.debian.org/debian"
+                                ;;
+                        "CN")
+                                SOURCES="http://ftp.cn.debian.org/debian"
+                                ;;
+			*)
+				SOURCES="http://httpredir.debian.org/debian"
+                                ;;
+                esac
 		;;
 	*)
 		echo "Unknown distribution: $DISTRO"
@@ -94,7 +153,7 @@ deboostrap_rootfs() {
 	cd $TEMP && pwd
 
 	# this is updated very seldom, so is ok to hardcode
-	debian_archive_keyring_deb='http://httpredir.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2014.3_all.deb'
+	debian_archive_keyring_deb="${SOURCES}/pool/main/d/debian-archive-keyring/debian-archive-keyring_2019.1_all.deb"
 	wget -O keyring.deb "$debian_archive_keyring_deb"
 	ar -x keyring.deb && rm -f control.tar.gz debian-binary && rm -f keyring.deb
 	DATA=$(ls data.tar.*) && compress=${DATA#data.tar.}
@@ -103,9 +162,9 @@ deboostrap_rootfs() {
 	bsdtar --include ./usr/share/keyrings/$KR --strip-components 4 -xvf "$DATA"
 	rm -f "$DATA"
 
-	apt-get -y install debootstrap qemu-user-static
+	apt-get -y install debootstrap binfmt-suport qemu-user-static
 
-	qemu-debootstrap --arch=arm64 --keyring=$TEMP/$KR $dist rootfs http://httpredir.debian.org/debian
+	qemu-debootstrap --arch=arm64 --keyring=$TEMP/$KR $dist rootfs ${SOURCES}
 	rm -f $KR
 
 	# keeping things clean as this is copied later again
@@ -235,13 +294,13 @@ add_debian_apt_sources() {
 	local release="$1"
 	local aptsrcfile="$DEST/etc/apt/sources.list"
 	cat > "$aptsrcfile" <<EOF
-deb http://httpredir.debian.org/debian ${release} main contrib non-free
-#deb-src http://httpredir.debian.org/debian ${release} main contrib non-free
+deb ${SOURCES} ${release} main contrib non-free
+#deb-src ${SOURCES} ${release} main contrib non-free
 EOF
 	# No separate security or updates repo for unstable/sid
 	[ "$release" = "sid" ] || cat >> "$aptsrcfile" <<EOF
-deb http://httpredir.debian.org/debian ${release}-updates main contrib non-free
-#deb-src http://httpredir.debian.org/debian ${release}-updates main contrib non-free
+deb ${SOURCES} ${release}-updates main contrib non-free
+#deb-src ${SOURCES} ${release}-updates main contrib non-free
 
 deb http://security.debian.org/ ${release}/updates main contrib non-free
 #deb-src http://security.debian.org/ ${release}/updates main contrib non-free
@@ -251,17 +310,17 @@ EOF
 add_ubuntu_apt_sources() {
 	local release="$1"
 	cat > "$DEST/etc/apt/sources.list" <<EOF
-deb http://ports.ubuntu.com/ ${release} main restricted universe multiverse
-deb-src http://ports.ubuntu.com/ ${release} main restricted universe multiverse
+deb ${SOURCES} ${release} main restricted universe multiverse
+deb-src ${SOURCES} ${release} main restricted universe multiverse
 
-deb http://ports.ubuntu.com/ ${release}-updates main restricted universe multiverse
-deb-src http://ports.ubuntu.com/ ${release}-updates main restricted universe multiverse
+deb ${SOURCES} ${release}-updates main restricted universe multiverse
+deb-src ${SOURCES} ${release}-updates main restricted universe multiverse
 
-deb http://ports.ubuntu.com/ ${release}-security main restricted universe multiverse
-deb-src http://ports.ubuntu.com/ ${release}-security main restricted universe multiverse
+deb ${SOURCES} ${release}-security main restricted universe multiverse
+deb-src $SOURCES ${release}-security main restricted universe multiverse
 
-deb http://ports.ubuntu.com/ ${release}-backports main restricted universe multiverse
-deb-src http://ports.ubuntu.com/ ${release}-backports main restricted universe multiverse
+deb ${SOURCES} ${release}-backports main restricted universe multiverse
+deb-src ${SOURCES} ${release}-backports main restricted universe multiverse
 EOF
 }
 
@@ -277,6 +336,13 @@ case $DISTRO in
 		mv "$DEST/etc/resolv.conf" "$DEST/etc/resolv.conf.dist"
 		cp /etc/resolv.conf "$DEST/etc/resolv.conf"
 		sed -i 's|CheckSpace|#CheckSpace|' "$DEST/etc/pacman.conf"
+		if [ $SOURCES = "CN" ]; then
+			sed -i ':a;N;$!ba;s|\nServer|\n# Server|g' "$DEST/etc/pacman.d/mirrorlist"
+			echo -e "\n### archlinux aliyun\nServer = http://mirrors.163.com/archlinuxarm/$arch/$repo" >> "$DEST/etc/pacman.d/mirrorlist"
+			do_chroot pacman-key --populate
+			do_chroot pacman-key --init
+			do_chroot pacman -Syy
+		fi
 		do_chroot pacman -Rsn --noconfirm linux-aarch64 || true
 		do_chroot pacman -Sy --noconfirm --needed dosfstools curl xz iw rfkill netctl dialog wpa_supplicant alsa-utils || true
 		add_platform_scripts
@@ -288,19 +354,21 @@ case $DISTRO in
 		mv "$DEST/etc/resolv.conf.dist" "$DEST/etc/resolv.conf"
 		sed -i 's|#CheckSpace|CheckSpace|' "$DEST/etc/pacman.conf"
 		;;
-	xenial|sid|jessie)
+	xenial|bionic|sid|stretch|stable)
 		rm "$DEST/etc/resolv.conf"
 		cp /etc/resolv.conf "$DEST/etc/resolv.conf"
-		if [ "$DISTRO" = "xenial" ]; then
+		if [ "$DISTRO" = "xenial" -o "$DISTRO" = "bionic" ]; then
 			DEB=ubuntu
 			DEBUSER=orangepi
-			EXTRADEBS="software-properties-common zram-config ubuntu-minimal"
+			EXTRADEBS="vim screen dnsutils software-properties-common zram-config ubuntu-minimal net-tools apt-transport-https bridge-utils cpufrequtils device-tree-compiler fbset iw fake-hwclock wpasupplicant psmisc ntp parted linux-base crda wireless-regdb sysfsutils u-boot-tools usbutils wireless-tools console-setup unicode-data initramfs-tools ca-certificates resolvconf iptables ethtool libssl-dev"
 			ADDPPACMD=
-			DISPTOOLCMD="apt-get -y install sunxi-disp-tool"
-		elif [ "$DISTRO" = "sid" -o "$DISTRO" = "jessie" ]; then
+			DISPTOOLCMD=
+			# The sunxi-disp-tool broken on Allwinner H5 disp2.
+			# DISPTOOLCMD="apt-get -y install sunxi-disp-tool"
+		elif [ "$DISTRO" = "sid" -o "$DISTRO" = "stretch" -o "$DISTRO" = "stable" ]; then
 			DEB=debian
 			DEBUSER=orangepi
-			EXTRADEBS="sudo"
+			EXTRADEBS="sudo net-tools"
 			ADDPPACMD=
 			DISPTOOLCMD=
 		else
@@ -311,27 +379,43 @@ case $DISTRO in
 		cat > "$DEST/second-phase" <<EOF
 #!/bin/sh
 export DEBIAN_FRONTEND=noninteractive
-locale-gen en_US.UTF-8
 apt-get -y update
-apt-get -y install dosfstools curl xz-utils iw rfkill wpasupplicant openssh-server alsa-utils $EXTRADEBS
+apt-get -y install man-db bsdmainutils locales
+locale-gen en_US.UTF-8
+apt-get -y install dosfstools curl xz-utils iw rfkill wpasupplicant network-manager openssh-server alsa-utils $EXTRADEBS
 apt-get -y remove --purge ureadahead
 $ADDPPACMD
 apt-get -y update
 $DISPTOOLCMD
 adduser --gecos $DEBUSER --disabled-login $DEBUSER --uid 1000
 adduser --gecos root --disabled-login root --uid 0
+echo root:root | chpasswd
 chown -R 1000:1000 /home/$DEBUSER
 echo "$DEBUSER:$DEBUSER" | chpasswd
-usermod -a -G sudo,adm,input,video,plugdev $DEBUSER
+usermod -a -G sudo $DEBUSER
+usermod -a -G adm $DEBUSER
+usermod -a -G input $DEBUSER
+usermod -a -G video $DEBUSER
+usermod -a -G plugdev $DEBUSER
 apt-get -y autoremove
 apt-get clean
 EOF
 		chmod +x "$DEST/second-phase"
 		do_chroot /second-phase
-		cat > "$DEST/etc/network/interfaces.d/eth0" <<EOF
+		if [ ! -d "$DEST/etc/netplan" ]; then
+			cat > "$DEST/etc/network/interfaces.d/eth0" <<EOF
 auto eth0
 iface eth0 inet dhcp
 EOF
+		else
+			rm -f "$DEST/usr/lib/NetworkManager/conf.d/10-globally-managed-devices.conf"
+			cat > "$DEST/etc/netplan/orangepi-default.yaml" <<EOF
+network:
+  version: 2
+  renderer: NetworkManager
+EOF
+			sed "s/managed=\(.*\)/managed=true/g" -i "$DEST/etc/NetworkManager/NetworkManager.conf"
+		fi
 		cat > "$DEST/etc/hostname" <<EOF
 Orangepi
 EOF

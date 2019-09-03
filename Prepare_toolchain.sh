@@ -12,3 +12,5 @@ apt-get -y --no-install-recommends --fix-missing install \
 	gcc automake make \
 	lib32z1 lib32z1-dev qemu-user-static \
 	dosfstools libncurses5-dev
+# This has some problems on some linux distro
+apt-get -y --no-install-recommends --fix-missing install lib32stdc++6

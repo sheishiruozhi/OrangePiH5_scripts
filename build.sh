@@ -186,15 +186,54 @@ if [ $OPTION = "0" -o $OPTION = "1" ]; then
 	clear
 	TMP=$OPTION
 	TMP_DISTRO=""
+	OPTION=0
+	SOURCES="CDN"
+SelectDistro()
+{
 	MENUSTR="Distro Options"
 	OPTION=$(whiptail --title "OrangePi Build System" \
 		--menu "$MENUSTR" 20 60 5 --cancel-button Finish --ok-button Select \
-		"0"   "ArchLinux" \
-		"1"   "Ubuntu Xenial" \
-		"2"	  "Debian Sid" \
-		"3"   "Debian Jessie" \
-		"4"   "CentOS" \
+		"0"   "[$SOURCES]Change repository server" \
+		"1"   "ArchLinux" \
+		"2"   "Ubuntu Xenial" \
+		"3"   "Ubuntu Bionic" \
+		"4"	  "Debian Sid" \
+		"5"   "Debian stretch" \
+		"6"   "Debian stable" \
+		"7"   "CentOS" \
 		3>&1 1>&2 2>&3)
+        if [ $OPTION = "0" ]; then
+                SelectSources
+        elif [ $OPTION = "1" ]; then
+                TMP_DISTRO="arch"
+        elif [ $OPTION = "2" ]; then
+                TMP_DISTRO="xenial"
+        elif [ $OPTION = "3" ]; then
+                TMP_DISTRO="bionic"
+        elif [ $OPTION = "4" ]; then
+                TMP_DISTRO="sid"
+        elif [ $OPTION = "5" ]; then
+                TMP_DISTRO="stretch"
+        elif [ $OPTION = "6" ]; then
+                TMP_DISTRO="stable"
+        elif [ $OPTION = "7" ]; then
+                TMP_DISTRO="centos"
+        fi
+}
+SelectSources()
+{
+	SOURCES=$(whiptail --title "Repository Server" --nocancel --radiolist \
+	        "What is the repository server of your choice?" 20 60 5 \
+	        "CDN" "Deafult CDN repository server(RCMD)." ON \
+	        "OFCL" "Official repository server." OFF \
+	        "CN" "The server from China." OFF 3>&1 1>&2 2>&3)
+	exitstatus=$?
+	if [ $exitstatus = 0 ]; then
+		echo "The chosen server is:" $SOURCES
+		SelectDistro
+	fi
+}
+	SelectDistro
 
 	if [ ! -f $ROOT/output/uImage ]; then
 		export BUILD_KERNEL=1
@@ -202,6 +241,7 @@ if [ $OPTION = "0" -o $OPTION = "1" ]; then
 		./kernel_compile.sh
 		cd -
 	fi
+
 	if [ ! -d $ROOT/output/lib ]; then
 		if [ -f $ROOT/output/lib ]; then
 			rm $ROOT/output/lib
@@ -212,23 +252,13 @@ if [ $OPTION = "0" -o $OPTION = "1" ]; then
 		./kernel_compile.sh
 		cd -
 	fi
+
 	if [ ! -f $ROOT/output/uboot.bin -o ! -f $ROOT/output/boot0.bin ]; then
-	    cd $SCRIPTS
+		cd $SCRIPTS
 		./uboot_compile.sh
 		cd -
 	fi
 
-	if [ $OPTION = "0" ]; then
-		TMP_DISTRO="arch"
-	elif [ $OPTION = "1" ]; then
-		TMP_DISTRO="xenial"	
-	elif [ $OPTION = "2" ]; then
-		TMP_DISTRO="sid"
-	elif [ $OPTION = "3" ]; then
-		TMP_DISTRO="jessie"
-	elif [ $OPTION = "4" ]; then
-		TMP_DISTRO="centos"
-	fi
 	cd $SCRIPTS
 	DISTRO=$TMP_DISTRO
 	if [ -d $ROOT/output/${DISTRO}_rootfs ]; then
@@ -239,7 +269,7 @@ if [ $OPTION = "0" -o $OPTION = "1" ]; then
 			OP_ROOTFS=1
 		fi
 		if [ $OP_ROOTFS = "0" ]; then
-			sudo cp -rf $ROOT/output/${DISTRO}_rootfs $ROOT/output/tmp
+			sudo cp -rfa $ROOT/output/${DISTRO}_rootfs $ROOT/output/tmp
 			if [ -d $ROOT/output/rootfs ]; then
 				sudo rm -rf $ROOT/output/rootfs
 			fi
@@ -247,20 +277,20 @@ if [ $OPTION = "0" -o $OPTION = "1" ]; then
 			whiptail --title "OrangePi Build System" --msgbox "Rootfs has build" \
 				10 40 0	--ok-button Continue
 		else
-			sudo ./00_rootfs_build.sh $DISTRO
+			sudo ./00_rootfs_build.sh $DISTRO $SOURCES
 			sudo ./01_rootfs_build.sh $DISTRO
 			sudo ./02_rootfs_build.sh $DISTRO
 			sudo ./03_rootfs_build.sh $DISTRO
 
 		fi
 	else
-		sudo ./00_rootfs_build.sh $DISTRO
+		sudo ./00_rootfs_build.sh $DISTRO $SOURCES
 		sudo ./01_rootfs_build.sh $DISTRO
 		sudo ./02_rootfs_build.sh $DISTRO
 		sudo ./03_rootfs_build.sh $DISTRO
 	fi
 	if [ $TMP = "0" ]; then 
-		sudo ./build_image.sh $PLATFORM
+		sudo ./build_image.sh ${PLATFORM}_${DISTRO}
 		whiptail --title "OrangePi Build System" --msgbox "Succeed to build Image" \
 				10 40 0	--ok-button Continue
 	fi

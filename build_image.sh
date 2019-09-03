@@ -20,7 +20,14 @@ BUILD="$ROOT/external"
 OUTPUT="$ROOT/output"
 IMAGE="$OUTPUT/${PLATFORM}.img"
 ROOTFS="$OUTPUT/rootfs"
-disk_size="1200"
+
+# Partition Setup
+boot0_position=8      # KiB
+uboot_position=16400  # KiB
+part_position=20480   # KiB
+boot_size=50          # MiB
+# disk_size="1200"
+disk_size=$[(`du -s $ROOTFS | awk 'END {print $1}'`+part_position)/1024+300+boot_size]
 
 if [ -z "$disk_size" ]; then
 	disk_size=100 #MiB
@@ -35,12 +42,6 @@ echo "Creating image $IMAGE of size $disk_size MiB ..."
 
 boot0="$ROOT/output/boot0.bin"
 uboot="$ROOT/output/uboot.bin"
-
-# Partition Setup
-boot0_position=8      # KiB
-uboot_position=16400  # KiB
-part_position=20480   # KiB
-boot_size=50          # MiB
 
 set -x
 
@@ -61,7 +62,7 @@ cp -rfa $OUTPUT/uImage $OUTPUT/orangepi
 cp -rfa $OUTPUT/OrangePiH5.dtb $OUTPUT/orangepi/OrangePiH5.dtb
 
 # Add boot support if there
-if [ -e "$OUTPUT/orangepi/uImage" -a -e "$OUTPUT/orangepi/OrangePiH5orangepi.dtb" ]; then
+if [ -e "$OUTPUT/orangepi/uImage" -a -e "$OUTPUT/orangepi/OrangePiH5.dtb" ]; then
 	mcopy -sm -i ${IMAGE}1 ${OUTPUT}/orangepi ::
 	mcopy -m -i ${IMAGE}1 ${OUTPUT}/initrd.img :: || true
 	mcopy -m -i ${IMAGE}1 ${OUTPUT}/uEnv.txt :: || true
@@ -71,7 +72,7 @@ rm -f ${IMAGE}1
 
 # Create additional ext4 file system for rootfs
 dd if=/dev/zero bs=1M count=$((disk_size-boot_size-part_position/1024)) of=${IMAGE}2
-mkfs.ext4 -F -b 4096 -E stride=2,stripe-width=1024 -L rootfs ${IMAGE}2
+mkfs.ext4 -O ^metadata_csum -F -b 4096 -E stride=2,stripe-width=1024 -L rootfs ${IMAGE}2
 
 if [ ! -d /media/tmp ]; then
 	mkdir -p /media/tmp
