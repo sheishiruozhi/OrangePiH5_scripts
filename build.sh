@@ -100,7 +100,7 @@ MENUSTR="Welcome to OrangePi Build System. Pls choose Platform."
 OPTION=$(whiptail --title "OrangePi Build System" \
 	--menu "$MENUSTR" 10 60 3 --cancel-button Exit --ok-button Select \
 	"0"  "OrangePi PC2" \
-	"1"  "OrangePi Prima(internal version)" \
+	"1"  "OrangePi Prime" \
 	"2"  "OrangePi Zero Plus2" \
 	3>&1 1>&2 2>&3)
 
